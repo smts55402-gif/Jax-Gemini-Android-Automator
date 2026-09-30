@@ -1,0 +1,52 @@
+name: Build Jax APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Extract Jax source
+        run: |
+          mkdir -p jax-source
+          unzip -q Jax_Gemini_Android_Automator_v0.4.0_CLOUD_BUILD.zip -d jax-source
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.7'
+
+      - name: Build Jax APK
+        working-directory: jax-source
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+
+      - name: Upload Jax APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jax-Gemini-Android-Automator-debug
+          path: jax-source/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
