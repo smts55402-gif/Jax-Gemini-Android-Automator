@@ -13,18 +13,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - name: Restore Jax source package
+      - name: Verify source package
+        shell: bash
         run: |
+          set -euo pipefail
+          test -f "JAX_SOURCE_0.4.7.zip"
+          echo "Source package found:"
+          ls -lh "JAX_SOURCE_0.4.7.zip"
+
+      - name: Extract Jax source
+        shell: bash
+        run: |
+          set -euo pipefail
+
           rm -rf /tmp/jax-source
           mkdir -p /tmp/jax-source
-          unzip -o JAX_SOURCE_0.4.7.zip -d /tmp/jax-source
-          cp -a /tmp/jax-source/. .
+
+          unzip -q "JAX_SOURCE_0.4.7.zip" -d /tmp/jax-source
+
+          test -f "/tmp/jax-source/settings.gradle"
+          test -f "/tmp/jax-source/build.gradle"
+          test -f "/tmp/jax-source/app/build.gradle"
+          test -f "/tmp/jax-source/app/src/main/java/com/jax/gemini/JaxAccessibilityService.java"
+
+          cp -a /tmp/jax-source/. ./
+
+          echo "Jax source restored successfully."
+          find app/src/main/java/com/jax/gemini -maxdepth 1 -type f -print
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -40,8 +61,37 @@ jobs:
           gradle-version: "8.7"
           cache-provider: basic
 
+      - name: Verify Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f "settings.gradle"
+          test -d "app"
+          test -f "app/build.gradle"
+
+          echo "Project verification passed."
+          echo "Gradle:"
+          gradle --version
+
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug --stacktrace
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon :app:assembleDebug --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+
+          test -n "$APK"
+          test -s "$APK"
+
+          echo "APK created:"
+          ls -lh "$APK"
 
       - name: Upload Jax APK
         uses: actions/upload-artifact@v4
